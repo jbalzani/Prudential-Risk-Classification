@@ -13,7 +13,7 @@ library(randomForest)
 train <- read_csv("C:/Users/John/Documents/Data Analysis Work/R/projects/Prudential-Risk-Classification/data/0-raw/train.csv/train.csv")
                   
 #######eda
-view(train)
+#view(train)
 head(train)
 tail(train)
 ncol(train)
@@ -30,6 +30,15 @@ train <- train[,-which(remove == 1)]
 train <- na.omit(train)
 nrow(train)
 train <- train[-1] #remove Id col
+train$Product_Info_2 <- factor(train$Product_Info_2)
+
+#check to see if columns have more than 1 value
+#test
+#a <- seq(1, 10, 1)
+#sapply(a, function(x) x + 2)
+
+one_value <- sapply(train, function(x) length(unique(x)) == 1)
+one_value[which(one_value == TRUE)]
 
 #possible collinearity between features not an issue for decision trees, no impact on 
 #interpretability
@@ -80,17 +89,25 @@ set.seed(1)
 # plot(model_rf)
 # varImp(model_rf)
 #Rborist method did not work well for me
+features <- train[-115]
+y <- train$Response
 control <- trainControl(method = "cv", number = 5, p = 0.8)
-grid <- expand.grid(minNode = c(1, 5), predFixed = c(10, 15, 25, 35, 50))
-model_rf <- train(x = , y = y,
+grid <- data.frame(mtry = seq(10, 50, 5))
+model_rf <- train(x = features, y = y,
                   method = "rf",
                   ntree = 50,
                   trControl = control,
-                  tuneGrid = grid,
-                  nsamp = 5)
+                  tuneGrid = grid)
 
 #na.action = na.pass gives error, =na.exclude gives error, na.omit gives error on
 #unchanged test set
+test2 <- test %>%
+  mutate(Product_Info_2 = as.factor(Product_Info_2))
+test2 <- test2[, -which(remove == 1)]
+na_by_row <- rowSums(is.na(test2))
+na_index <- which(na_by_row >= 1)
+test3 <- na.omit(test2)
+
 est_risk_rf <- predict(model_rf, newdata = test3)
 est_risk_rf <- ifelse(est_risk_rf > 8, 8,
                       ifelse(est_risk_rf < 1, 1, est_risk_rf))
