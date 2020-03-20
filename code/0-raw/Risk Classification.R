@@ -7,7 +7,7 @@ library(caret)
 library(readr)
 library(rpart)
 library(Metrics)
-library(Rborist)
+library(randomForest)
 
 #import data
 train <- read_csv("C:/Users/John/Documents/Data Analysis Work/R/projects/Prudential-Risk-Classification/data/0-raw/train.csv/train.csv")
@@ -54,26 +54,6 @@ test <- read_csv("C:/Users/John/Documents/Data Analysis Work/R/projects/Prudenti
 #category have the same estimated risk level
 
 
-
-#export file as .csv
-#sep specifies the type of file you are writing to, this saves it to the 
-#current working directory
-#this will overwrite the previously saved file of the same name
-write.table(submission, file = "submission.csv", row.names = F, sep = ",", col.names = T)
-
-#to save somewhere other than working directory
-#don't need the C: in the path name!
-write.table(est_risk, file = "/Users/John/Documents/estimated_risk.csv", 
-            row.names = F, sep = ',')
-
-#write .csv command
-write.csv(est_risk, file = "/Users/John/Documents/estimated_risk.csv", row.names = F)
-
-#write as .txt. file
-write.table(est_risk, file = "estimated_risk.txt", row.names = F, sep = "\t")
-
-#save as space delimited file - will show as just type File 
-write.table(est_risk, file = "estimated_risk", row.names = F, sep = " ")
 ####random forest model
 set.seed(1)
 # categories <- unique(train$Product_Info_2) #distinct() returns a dataframe
@@ -90,13 +70,34 @@ set.seed(1)
 # model_rf_initial <- Rborist(x2, y)
 # plot(model_rf_initial)
 #Rborist function can't accept characters, but Rborist method in train function can
+# control <- trainControl(method = "cv", number = 5, p = 0.8)
+# grid <- expand.grid(minNode = c(1, 5), predFixed = seq(0, 100, 25))
+# model_rf <- train(Response ~ ., data = train,
+#                   method = "Rborist", 
+#                   ntree = 100,
+#                   tuneGrid = grid,
+#                   nsamp = 5)
+# plot(model_rf)
+# varImp(model_rf)
+#Rborist method did not work well for me
 control <- trainControl(method = "cv", number = 5, p = 0.8)
-grid <- expand.grid(minNode = c(1, 5), predFixed = seq(0, 100, 25))
-model_rf <- train(Response ~ ., data = train,
-                  method = "Rborist", 
-                  ntree = 100,
+grid <- expand.grid(minNode = c(1, 5), predFixed = c(10, 15, 25, 35, 50))
+model_rf <- train(x = , y = y,
+                  method = "rf",
+                  ntree = 50,
+                  trControl = control,
                   tuneGrid = grid,
                   nsamp = 5)
-plot(model_rf)
-varImp(model_rf)
 
+#na.action = na.pass gives error, =na.exclude gives error, na.omit gives error on
+#unchanged test set
+est_risk_rf <- predict(model_rf, newdata = test3)
+est_risk_rf <- ifelse(est_risk_rf > 8, 8,
+                      ifelse(est_risk_rf < 1, 1, est_risk_rf))
+avg_est <- mean(est_risk_rf)
+est_risk_rf <- append(est_risk_rf, avg_est, after = na_index[3])
+est_risk_rf <- append(est_risk_rf, avg_est, after = na_index[2])
+est_risk_rf <- append(est_risk_rf, avg_est, after = na_index[1])
+est_risk_rf <- round(est_risk_rf, 0)
+submission <- tibble(Id = test$Id, Response = est_risk_rf)
+write.table(submission, "submission.csv", row.names = F, sep = ",")
